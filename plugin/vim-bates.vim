@@ -1,14 +1,17 @@
 
-let g:bates_show_abs_paths = 0
+let g:bates_show_abs_paths = 0 "Show full paths in popup window
 
-let g:bates_load_to_line     = 0
-let g:bates_load_to_column   = 0
-let g:bates_allow_duplicates = 0
-let g:bates_switch_focus     = 1
+let g:bates_load_to_line      = 0 "Jump to exact line of saved file
+let g:bates_load_to_column    = 0 "Jump to exact column of saved file
+let g:bates_allow_duplicates  = 1 "Allow duplicated files in saved list
+let g:bates_switch_focus      = 1 "Focus to buffer instead of reopening file
+let g:bates_temp_files_scroll = 0 "0: Down, 1: Up 
+let g:bates_max_temp_files    = 5 "Size of list for temp files, max of 9
 
-let s:bates_files = []
+let g:bates_opened_files = [] "List of files that got opened [1-9]
+let g:bates_saved_files  = [] "List of cached files any key except [1-9]
+
 let s:bates_init = 0
-let s:bates_idx = 0
 
 func! BatesInit() abort
 
@@ -21,191 +24,93 @@ endfunc
 func! BatesReset() abort
   call BatesInit()
 
-  let s:bates_idx = 0
+  call bates#plugin#set_idx(0)
 endfunc
 
-func! s:FindKey(key) abort
-  let l:i = 0
-  for l:f in s:bates_files
-    if (l:f[0] == a:key)
-      return l:i
-    endif
-    let l:i = l:i + 1
-  endfor
-  return -1
-endfunc
-
-func! s:IsKeyFree(key) abort
-  return s:FindKey(a:key) == -1
-endfunc
-
-func! s:IsFileContained(file) abort
-  for l:f in s:bates_files
-    if (l:f[1] == file)
-      return 1
-    endif
-  endfor
-  return 0
-endfunc
-
-func! s:CmpList(a, b) abort
-
-  if a:a[0] ==# a:b[0]
-    return 0
-  endif
-
-  return a:a[0] ># a:b[0] ? 1 : -1
-endfunc
-
-func! s:Sort() abort
-  call sort(s:bates_files, 's:CmpList')
+func! BatesClearAll() abort
+  let l:bates_saved_files = []
+  let g:bates_opened_files = []
 endfunc
 
 func! BatesCacheFileAt(key) abort
 
-  if (a:key == '0')
-    echo("0 Can't be used as a shortcut key")
+  if (a:key =~ '[1-9]')
     return
   endif
 
-  let l:idx = s:FindKey(a:key)
+  call bates#plugin#cache_file(a:key, g:bates_saved_files, g:bates_allow_duplicates)
 
-  let l:file = expand('%:p')
-  let l:line = line('.')
-  let l:col  = col('.')
+endfunc
 
-  if (!g:bates_allow_duplicates)
-    if (s:IsFileContained(l:file))
-      return
-    endif
-  endif
+func! BatesRequestKeyForFile() abort
 
-  let l:element = [a:key, l:file, l:line, l:col]
+  echo("Bates: press key to save file") 
+  let l:key = nr2char(getchar())
+  redraw!
 
-  if (l:idx < 0)
-    call add(s:bates_files, l:element)
-    call s:Sort()
+  call BatesCacheFileAt(l:key)
+
+endfunc
+
+func! BatesCacheOpenedFile() abort
+
+  let l:count = len(g:bates_opened_files)
+  if (l:count != bates#plugin#max_temp())
+
+    let l:pos = l:count + 1 
+    call bates#plugin#cache_file(l:pos, g:bates_opened_files, 0)
+
   else
-    let s:bates_files[l:idx] = l:element
+
+    let l:id = 1
+    let l:i_pos = 0
+    let l:r_pos = -1
+
+    if (g:bates_temp_files_scroll) "Up
+      let l:id = bates#plugin#max_temp()
+      let l:i_pos = bates#plugin#max_temp()
+      let l:r_pos = 0
+    endif
+    
+    call bates#plugin#scroll_temp_list(l:id, l:i_pos, l:r_pos)
+
   endif
 
 endfunc
 
-func! BatesCacheFile() abort
+func! BatesFilter(id, key) abort
 
-  let l:count = len(s:bates_files)
-  if (!l:count)
-    call BatesCacheFileAt(1)
-    return
-  endif
-
-  let l:file = s:bates_files[l:count - 1]
-  call BatesCacheFileAt(l:file[0] + 1)
-endfunc
-
-func! BatesClearAll() abort
-  let l:bates_files = []
-endfunc
-
-func! s:IsFileAlreadyOpened(path) abort
-
-  let l:buffer_number = bufnr(a:path)
-  if l:buffer_number <= 0
-    return -1
-  endif
-
-  return l:buffer_number
-
-endfunc
-
-func! s:FocusBuffer(buffer) abort
-
-  let l:wnr = bufwinnr(a:buffer)
-  if l:wnr != -1
-    execute l:wnr . 'wincmd w'
+  if (bates#plugin#check_enter(a:id, a:key))
     return 1
-  "else "This is for switching windows to the one containing the buffer
-  "  execute 'buffer' l:bnr
+  endif
+
+  if (bates#plugin#check_esc(a:id, a:key))
+    return 1
+  endif
+
+  if (bates#plugin#check_shortcut(a:id, a:key, g:bates_saved_files))
+    return 1
+  endif
+
+  if (bates#plugin#check_shortcut(a:id, a:key, g:bates_opened_files))
+    return 1
+  endif
+
+  if (bates#plugin#check_down(a:id, a:key))
+    return 1
+  endif
+
+  if (bates#plugin#check_up(a:id, a:key))
+    return 1
   endif
 
   return 0
 endfunc
 
-function s:Clamp(pos)
-
-  if (a:pos < 0)
-    return 0
-  endif
-
-  let l:count = len(s:bates_files)
-  if (a:pos >= l:count)
-    return l:count - 1
-  endif
-
-  return a:pos
-endfunc
-
-func! BatesOpenFile(file) abort
-
-  let l:file = fnameescape(a:file[1])
-  let l:buffer = s:IsFileAlreadyOpened(l:file)
-  if (g:bates_switch_focus && (l:buffer > -1))
-    call s:FocusBuffer(l:buffer)
-  else
-    execute 'edit ' . l:file
-  endif
-
-  let l:line   = g:bates_load_to_line   ? a:file[2] : 0
-  let l:column = g:bates_load_to_column ? a:file[3] : 0
-
-  call cursor(l:line, l:column)
-
-endfunc
-
-funct! s:MoveIndex(id, dir) abort
-  let s:bates_idx = s:Clamp(s:bates_idx + a:dir)
-  call win_execute(a:id, ':'. string(s:bates_idx + 2)) 
-endfunct
-
-func! BatesFilter(id, key) abort
-
-  if (a:key == "\<CR>")
-    call popup_close(a:id, s:bates_idx)
-    return 1
-  endif
-
-  if (a:key == "\<Esc>")
-    call popup_close(a:id, -1)
-    return 1
-  endif
-
-  for l:i in range(0, len(s:bates_files) - 1)
-
-    let l:f = s:bates_files[l:i]
-    if (l:f[0] == a:key)
-      echo(l:f)
-      call popup_close(a:id, l:i)
-      return 1
-    endif
-
-  endfor
-
-  if (a:key == 'j' || a:key == "\<Down>")
-    call s:MoveIndex(a:id, 1)
-    return 1
-  endif
-
-  if (a:key == 'k' || a:key == "\<Up>")
-    call s:MoveIndex(a:id, -1)
-    return 1
-  endif
-
-endfunc
-
 func! BatesCallback(id, key) abort
 
-  if (a:key != -1)
-    call BatesOpenFile(s:bates_files[a:key])
+  if (len(a:key))
+    call bates#plugin#open_file(a:key)
     return
   endif
 
@@ -229,18 +134,14 @@ func! Bates() abort
 
   let l:files = []
   call add(l:files, '')
-  for l:f in s:bates_files
 
-    let l:file = l:f[1]
-    if (!g:bates_show_abs_paths)
-      let l:file = fnamemodify(l:file, ':t')
-    endif
-
-    let l:file = printf('%s: %s:%d', l:f[0], l:file, l:f[2])
-    call add(l:files, l:file)
-  endfor
-  call add(l:files, '')
+  call extend(l:files, bates#plugin#pool_to_text('Saved',  g:bates_saved_files,  1))
+  call extend(l:files, bates#plugin#pool_to_text('Opened', g:bates_opened_files, 0))
 
   let l:popup = popup_menu(l:files, l:ve_args)
+  call bates#plugin#move_index(l:popup, 0)
 
 endfunc
+
+autocmd BufReadPost,BufNewFile * call BatesCacheOpenedFile()
+
