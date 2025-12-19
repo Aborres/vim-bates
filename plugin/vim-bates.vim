@@ -7,6 +7,7 @@ let g:bates_allow_duplicates  = 1 "Allow duplicated files in saved list
 let g:bates_switch_focus      = 1 "Focus to buffer instead of reopening file
 let g:bates_temp_files_scroll = 0 "0: Down, 1: Up 
 let g:bates_max_temp_files    = 5 "Size of list for temp files, max of 9
+let g:bates_sort_by           = 1 "0:Sort by key, 1: Sort by file
 
 let g:bates_opened_files = [] "List of files that got opened [1-9]
 let g:bates_saved_files  = [] "List of cached files any key except [1-9]
@@ -32,24 +33,48 @@ func! BatesClearAll() abort
   let g:bates_opened_files = []
 endfunc
 
-func! BatesCacheFileAt(key) abort
+func! BatesCacheFileAt(key, file) abort
 
   if (a:key =~ '[1-9]')
     return
   endif
 
-  call bates#plugin#cache_file(a:key, g:bates_saved_files, g:bates_allow_duplicates)
+  call bates#plugin#cache_file(a:key, g:bates_saved_files, a:file, g:bates_allow_duplicates)
 
 endfunc
 
-func! BatesRequestKeyForFile() abort
+func! BatesCacheFocusedFileAt(key) abort
 
-  echo("Bates: press key to save file") 
-  let l:key = nr2char(getchar())
+  let l:file = bates#plugin#get_focused_file()
+  call BatesCacheFileAt(a:key, l:file)
+
+endfunc
+
+func! s:GetKey() abort
+
+  echo("Bates: press key to save file ") 
+  let l:key = 0 
+  let l:search = 1
+  while l:search
+    let l:key = nr2char(getchar())
+    let l:valid_char = ((type(l:key) == v:t_string) && (l:key != ' ') && (l:key != ''))
+    let l:search = !l:valid_char 
+  endwhile
+  redraw!
+  echo("Bates: saved key: " . l:key)
   redraw!
 
-  call BatesCacheFileAt(l:key)
+  return l:key
+endfunc
 
+func! BatesRequestKeyForFile(file) abort
+  let l:key = s:GetKey()
+  call BatesCacheFileAt(l:key, a:file)
+endfunc
+
+func! BatesRequestKeyForFocusedFile() abort
+  let l:key = s:GetKey()
+  call BatesCacheFocusedFileAt(l:key)
 endfunc
 
 func! BatesCacheOpenedFile() abort
@@ -58,7 +83,7 @@ func! BatesCacheOpenedFile() abort
   if (l:count != bates#plugin#max_temp())
 
     let l:pos = l:count + 1 
-    call bates#plugin#cache_file(l:pos, g:bates_opened_files, 0)
+    call bates#plugin#cache_focused_file(l:pos, g:bates_opened_files, 0)
 
   else
 
@@ -104,7 +129,7 @@ func! BatesFilter(id, key) abort
     return 1
   endif
 
-  return 0
+  return popup_filter_menu(a:id, a:key)
 endfunc
 
 func! BatesCallback(id, key) abort

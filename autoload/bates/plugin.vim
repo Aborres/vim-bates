@@ -44,7 +44,7 @@ func! bates#plugin#is_file_contained(file) abort
   return 0
 endfunc
 
-func! s:CmpList(a, b) abort
+func! s:SortByKey(a, b) abort
 
   if a:a[0] ==# a:b[0]
     return 0
@@ -53,27 +53,51 @@ func! s:CmpList(a, b) abort
   return a:a[0] ># a:b[0] ? 1 : -1
 endfunc
 
-func! s:Sort(list) abort
-  call sort(a:list, 's:CmpList')
+func! s:SortByFile(a, b) abort
+
+  if a:a[1] ==# a:b[1]
+    return 0
+  endif
+
+  let l:path_a = fnamemodify(a:a[1][0], ':t')
+  let l:path_b = fnamemodify(a:b[1][0], ':t')
+
+  return l:path_a[0] ># l:path_b[0] ? 1 : -1
 endfunc
 
-func! s:GenerateElement(key) abort
+func! s:Sort(list, sort_by) abort
+  if (a:sort_by == 0)
+    call sort(a:list, 's:SortByKey')
+  else
+    call sort(a:list, 's:SortByFile')
+  endif
+endfunc
 
-  let l:file = expand('%:p')
+func! bates#plugin#get_focused_file() abort
+  return expand('%:p')
+endfunc
+
+func! s:GenerateElement(key, file) abort
+
   let l:line = line('.')
   let l:col  = col('.')
 
-  return [a:key, l:file, l:line, l:col]
+  return [a:key, a:file, l:line, l:col]
 endfunc
 
-func! bates#plugin#cache_file(key, pool, allow_duplicates) abort
+func! s:GenerateFocusedElement(key) abort
+  let l:file = bates#plugin#get_focused_file()
+  return s:GenerateElement(a:key, l:file) 
+endfunc
+
+func! bates#plugin#cache_file(key, pool, file, allow_duplicates) abort
 
   if (a:key == '0')
     echo("0 Can't be used as a shortcut key")
     return
   endif
 
-  let l:element = s:GenerateElement(a:key)
+  let l:element = s:GenerateElement(a:key, a:file)
   let l:file = l:element[1]
 
   if (!a:allow_duplicates)
@@ -86,11 +110,16 @@ func! bates#plugin#cache_file(key, pool, allow_duplicates) abort
 
   if (l:idx < 0)
     call add(a:pool, l:element)
-    call s:Sort(a:pool)
+    call s:Sort(a:pool, g:bates_sort_by)
   else
     let a:pool[l:idx] = l:element
   endif
 
+endfunc
+
+func! bates#plugin#cache_focused_file(key, pool, allow_duplicates) abort
+  let l:file = bates#plugin#get_focused_file()
+  call bates#plugin#cache_file(a:key, a:pool, l:file, a:allow_duplicates) 
 endfunc
 
 func! s:FileToText(f, line) abort
@@ -266,7 +295,7 @@ endfunc
 
 func! bates#plugin#scroll_temp_list(id, i_pos, r_pos) abort
 
-  let l:element = s:GenerateElement(a:id)
+  let l:element = s:GenerateFocusedElement(a:id)
 
   call insert(g:bates_opened_files, element, a:i_pos)
   call remove(g:bates_opened_files, a:r_pos)
