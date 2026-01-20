@@ -77,6 +77,10 @@ func! bates#plugin#get_focused_file() abort
   return expand('%:p')
 endfunc
 
+func! bates#plugin#is_focused_valid() abort
+  return &buftype ==# ''
+endfunc
+
 func! s:GenerateElement(key, file) abort
 
   let l:line = line('.')

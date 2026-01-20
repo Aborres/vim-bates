@@ -6,8 +6,8 @@ let g:bates_load_to_column    = 0 "Jump to exact column of saved file
 let g:bates_allow_duplicates  = 1 "Allow duplicated files in saved list
 let g:bates_switch_focus      = 1 "Focus to buffer instead of reopening file
 let g:bates_temp_files_scroll = 0 "0: Down, 1: Up 
-let g:bates_max_temp_files    = 5 "Size of list for temp files, max of 9
-let g:bates_sort_by           = 1 "0:Sort by key, 1: Sort by file
+let g:bates_max_temp_files    = 9 "Size of list for temp files, max of 9
+let g:bates_sort_by           = 0 "0:Sort by key, 1: Sort by file
 
 let g:bates_opened_files = [] "List of files that got opened [1-9]
 let g:bates_saved_files  = [] "List of cached files any key except [1-9]
@@ -78,6 +78,10 @@ func! BatesRequestKeyForFocusedFile() abort
 endfunc
 
 func! BatesCacheOpenedFile() abort
+
+  if (!bates#plugin#is_focused_valid())
+    return
+  endif
 
   let l:count = len(g:bates_opened_files)
   if (l:count != bates#plugin#max_temp())
