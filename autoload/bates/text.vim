@@ -63,9 +63,12 @@ func! bates#text#search_page(id)
   let l:filter = s:RemoveCursor(g:bates_search_filter)
 
   let l:files = []
-  "call s:AddList(l:files, g:bates_files_list, g:bates_saved_files,  l:filter)
-  "call s:AddList(l:files, g:bates_files_list, g:bates_opened_files, l:filter)
-  call s:CopyList(l:files, g:bates_files_list, g:bates_file_tracking, l:filter)
+  if (g:bates_search_pool)
+  call s:AddList(l:files, g:bates_files_list, g:bates_saved_files,  l:filter)
+  call s:AddList(l:files, g:bates_files_list, g:bates_opened_files, l:filter)
+  else
+    call s:CopyList(l:files, g:bates_files_list, g:bates_file_tracking, l:filter)
+  endif
 
   let g:bates_header = 2
 

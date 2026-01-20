@@ -8,7 +8,9 @@ let g:bates_switch_focus      = 1 "Focus to buffer instead of reopening file
 let g:bates_temp_files_scroll = 0 "0: Down, 1: Up 
 let g:bates_max_temp_files    = 9 "Size of list for temp files, max of 9
 let g:bates_sort_by           = 0 "0:Sort by key, 1: Sort by file
-let g:bates_num_file_tracking = 20
+
+let g:bates_search_pool       = 0  "0:Use list of tracked files, 1:Use file list from main pannel
+let g:bates_num_file_tracking = 20 "Only effective is g:bates_search_pool == 0 
 
 let g:bates_search_cursor = '|'
 
