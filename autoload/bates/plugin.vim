@@ -1,17 +1,16 @@
 
-let s:bates_idx = 0
-let s:bates_header = 3
+let g:bates_header = 3
 
 func! bates#plugin#max_temp() abort
   return min([g:bates_max_temp_files, 9])
 endfunc
 
 func! bates#plugin#set_idx(idx) abort
-  let s:bates_idx = a:idx
+  let g:bates_idx = a:idx
 endfunc
 
 func! bates#plugin#get_idx() abort
-  return s:bates_idx
+  return g:bates_idx
 endfunc
 
 func! s:FindKey(key, pool) abort
@@ -126,7 +125,7 @@ func! bates#plugin#cache_focused_file(key, pool, allow_duplicates) abort
   call bates#plugin#cache_file(a:key, a:pool, l:file, a:allow_duplicates) 
 endfunc
 
-func! s:FileToText(f, line) abort
+func! bates#plugin#file_to_text(f, line) abort
 
   let l:file = a:f[1]
 
@@ -148,7 +147,7 @@ func! bates#plugin#pool_to_text(name, pool, line) abort
   call add(l:files, a:name)
   call add(l:files, '')
   for l:f in a:pool
-    let l:file = s:FileToText(l:f, a:line)
+    let l:file = bates#plugin#file_to_text(l:f, a:line)
     call add(l:files, l:file)
   endfor
   call add(l:files, '')
@@ -182,26 +181,41 @@ function s:Clamp(pos, size)
   return a:pos
 endfunc
 
+funct! bates#plugin#set_index_to(id, pos) abort
+  call win_execute(a:id, ':'. string(a:pos))
+endfunct
+
+funct! bates#plugin#mp_move_index_to(id, pos, check_pools=1) abort
+
+  let g:bates_idx = s:Clamp(a:pos, len(g:bates_files_list))
+  let l:offset = g:bates_header + (bates#plugin#get_pool_idx(g:bates_idx) * g:bates_header) + 1
+
+  call bates#plugin#set_index_to(a:id, g:bates_idx + l:offset)
+endfunct
+
 " range = saved_size + opened_size 
 " two sections (0 - saved_size] and (saved_size - opened_size]
 " idx to screen:
 "   if in first section: + header
 "   if in second section: entire first section size + second_section_header 
 "   + 1
-funct! bates#plugin#move_index(id, dir) abort
+funct! bates#plugin#mp_move_index(id, dir) abort
+  call bates#plugin#mp_move_index_to(a:id, g:bates_idx + a:dir)
+endfunct
 
-  let l:saved_size  = len(g:bates_saved_files)
-  let l:opened_size = len(g:bates_opened_files)
-  let s:bates_idx = s:Clamp(s:bates_idx + a:dir, l:saved_size + l:opened_size)
+funct! bates#plugin#s_move_index_to(id, pos) abort
+  let g:bates_idx = s:Clamp(a:pos, len(g:bates_files_list))
+  let l:offset = g:bates_header + 1
+  call bates#plugin#set_index_to(a:id, g:bates_idx + l:offset)
+endfunct
 
-  let l:offset = s:bates_header + (bates#plugin#get_pool_idx(s:bates_idx) * s:bates_header) + 1
-  call win_execute(a:id, ':'. string(s:bates_idx + l:offset)) 
-
+funct! bates#plugin#s_move_index(id, dir) abort
+  call bates#plugin#s_move_index_to(a:id, g:bates_idx + a:dir)
 endfunct
 
 func! s:IsFileAlreadyOpened(path) abort
 
-  let l:buffer_number = bufwinid(a:path)
+  let l:buffer_number = bufnr(a:path)
   if (l:buffer_number <= 0)
     return -1
   endif
@@ -223,7 +237,7 @@ func! s:FocusBuffer(buffer) abort
   return 0
 endfunc
 
-func! bates#plugin#check_enter(id, key) abort
+func! bates#plugin#mp_check_enter(id, key) abort
 
   if (a:key == "\<CR>")
 
@@ -238,7 +252,7 @@ func! bates#plugin#check_enter(id, key) abort
   return 0
 endfunc
 
-func! bates#plugin#check_esc(id, key) abort
+func! bates#plugin#mp_check_esc(id, key) abort
 
   if (a:key == "\<Esc>")
     call popup_close(a:id, [])
@@ -247,7 +261,7 @@ func! bates#plugin#check_esc(id, key) abort
   return 0
 endfunc
 
-func! bates#plugin#check_shortcut(id, key, pool) abort
+func! bates#plugin#mp_check_shortcut(id, key, pool) abort
 
   for l:i in range(0, len(a:pool) - 1)
 
@@ -260,17 +274,74 @@ func! bates#plugin#check_shortcut(id, key, pool) abort
   return 0
 endfunc
 
-func! bates#plugin#check_down(id, key) abort
+func! bates#plugin#mp_check_search(id, key) abort
+  if (a:key == '/')
+    let g:bates_curr_page = g:bates_search
+    let g:bates_search_mode = 0
+    call bates#text#search_page(a:id)
+  endif
+  return 0
+endfunc
+
+func! bates#plugin#mp_check_down(id, key) abort
   if (a:key == 'j' || a:key == "\<Down>")
-    call bates#plugin#move_index(a:id, 1)
+    call bates#plugin#mp_move_index(a:id, 1)
     return 1
   endif
   return 0
 endfunc
 
-func! bates#plugin#check_up(id, key) abort
+func! bates#plugin#mp_check_up(id, key) abort
   if (a:key == 'k' || a:key == "\<Up>")
-    call bates#plugin#move_index(a:id, -1)
+    call bates#plugin#mp_move_index(a:id, -1)
+    return 1
+  endif
+  return 0
+endfunc
+
+func! bates#plugin#s_check_down(id, key) abort
+  if (a:key == 'j' || a:key == "\<Down>")
+    call bates#plugin#s_move_index(a:id, 1)
+    return 1
+  endif
+  return 0
+endfunc
+
+func! bates#plugin#s_check_up(id, key) abort
+  if (a:key == 'k' || a:key == "\<Up>")
+    call bates#plugin#s_move_index(a:id, -1)
+    return 1
+  endif
+  return 0
+endfunc
+
+func! bates#plugin#s_check_del(id, key) abort
+  if (a:key == "\<BS>")
+
+    let l:pos = stridx(g:bates_search_filter, g:bates_search_cursor)
+
+    if (l:pos == 1)
+      let g:bates_search_filter = g:bates_search_cursor
+    elseif (l:pos > 1)
+      let g:bates_search_filter = g:bates_search_filter[:l:pos - 2] . g:bates_search_cursor . g:bates_search_filter[l:pos + 1:]
+    endif
+    call bates#text#search_page(a:id)
+    return 1
+  endif
+
+  return 0
+endfunc
+
+func! bates#plugin#s_filter(id, key) abort
+
+  if (a:key >= ' ' && a:key <= '~')
+    let l:pos = stridx(g:bates_search_filter, g:bates_search_cursor)
+    if (l:pos == 0)
+      let g:bates_search_filter = a:key . g:bates_search_cursor
+    else
+      let g:bates_search_filter = g:bates_search_filter[:l:pos - 1] . a:key . g:bates_search_filter[l:pos:]
+    endif
+    call bates#text#search_page(a:id)
     return 1
   endif
   return 0
