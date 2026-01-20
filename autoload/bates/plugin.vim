@@ -93,6 +93,29 @@ func! s:GenerateFocusedElement(key) abort
   return s:GenerateElement(a:key, l:file) 
 endfunc
 
+func! bates#plugin#is_in_list(list, file)
+  for l:e in a:list
+    if l:e[1] == a:file
+      return 1
+    endif
+  endfor
+  return 0
+endfunc
+
+func! bates#plugin#trackfile()
+
+  let l:file = bates#plugin#get_focused_file()
+
+  if (!bates#plugin#is_in_list(g:bates_file_tracking, l:file))
+    let l:element = s:GenerateElement('0', l:file) "Key doesn't matter here
+    call add(g:bates_file_tracking, l:element)
+  endif
+
+  if (len(g:bates_file_tracking) >= g:bates_num_file_tracking)
+    call remove(g:bates_file_tracking, 0)
+  endif
+endfunc
+
 func! bates#plugin#cache_file(key, pool, file, allow_duplicates) abort
 
   if (a:key == '0')
@@ -125,12 +148,16 @@ func! bates#plugin#cache_focused_file(key, pool, allow_duplicates) abort
   call bates#plugin#cache_file(a:key, a:pool, l:file, a:allow_duplicates) 
 endfunc
 
+func! bates#plugin#filename(file) abort
+    return fnamemodify(a:file, ':t')
+endfunc
+
 func! bates#plugin#file_to_text(f, line) abort
 
   let l:file = a:f[1]
 
   if (!g:bates_show_abs_paths)
-    let l:file = fnamemodify(l:file, ':t')
+    let l:file = bates#plugin#filename(l:file)
   endif
 
   if (a:line)
@@ -168,7 +195,7 @@ func! bates#plugin#get_pool_idx(idx) abort
 
 endfunc
 
-function s:Clamp(pos, size)
+function bates#plugin#clamp(pos, size)
 
   if (a:pos < 0)
     return 0
@@ -183,34 +210,6 @@ endfunc
 
 funct! bates#plugin#set_index_to(id, pos) abort
   call win_execute(a:id, ':'. string(a:pos))
-endfunct
-
-funct! bates#plugin#mp_move_index_to(id, pos, check_pools=1) abort
-
-  let g:bates_idx = s:Clamp(a:pos, len(g:bates_files_list))
-  let l:offset = g:bates_header + (bates#plugin#get_pool_idx(g:bates_idx) * g:bates_header) + 1
-
-  call bates#plugin#set_index_to(a:id, g:bates_idx + l:offset)
-endfunct
-
-" range = saved_size + opened_size 
-" two sections (0 - saved_size] and (saved_size - opened_size]
-" idx to screen:
-"   if in first section: + header
-"   if in second section: entire first section size + second_section_header 
-"   + 1
-funct! bates#plugin#mp_move_index(id, dir) abort
-  call bates#plugin#mp_move_index_to(a:id, g:bates_idx + a:dir)
-endfunct
-
-funct! bates#plugin#s_move_index_to(id, pos) abort
-  let g:bates_idx = s:Clamp(a:pos, len(g:bates_files_list))
-  let l:offset = g:bates_header + 1
-  call bates#plugin#set_index_to(a:id, g:bates_idx + l:offset)
-endfunct
-
-funct! bates#plugin#s_move_index(id, dir) abort
-  call bates#plugin#s_move_index_to(a:id, g:bates_idx + a:dir)
 endfunct
 
 func! s:IsFileAlreadyOpened(path) abort
@@ -234,116 +233,6 @@ func! s:FocusBuffer(buffer) abort
   "  execute 'buffer' l:bnr
   endif
 
-  return 0
-endfunc
-
-func! bates#plugin#mp_check_enter(id, key) abort
-
-  if (a:key == "\<CR>")
-
-    let l:idx = bates#plugin#get_idx()
-    if (!bates#plugin#get_pool_idx(l:idx))
-      call popup_close(a:id, g:bates_saved_files[l:idx])
-    else
-      call popup_close(a:id, g:bates_opened_files[l:idx - len(g:bates_saved_files)])
-    endif
-    return 1
-  endif
-  return 0
-endfunc
-
-func! bates#plugin#mp_check_esc(id, key) abort
-
-  if (a:key == "\<Esc>")
-    call popup_close(a:id, [])
-    return 1
-  endif
-  return 0
-endfunc
-
-func! bates#plugin#mp_check_shortcut(id, key, pool) abort
-
-  for l:i in range(0, len(a:pool) - 1)
-
-    let l:f = a:pool[l:i]
-    if (l:f[0] == a:key)
-      call popup_close(a:id, l:f)
-      return 1
-    endif
-  endfor
-  return 0
-endfunc
-
-func! bates#plugin#mp_check_search(id, key) abort
-  if (a:key == '/')
-    let g:bates_curr_page = g:bates_search
-    let g:bates_search_mode = 0
-    call bates#text#search_page(a:id)
-  endif
-  return 0
-endfunc
-
-func! bates#plugin#mp_check_down(id, key) abort
-  if (a:key == 'j' || a:key == "\<Down>")
-    call bates#plugin#mp_move_index(a:id, 1)
-    return 1
-  endif
-  return 0
-endfunc
-
-func! bates#plugin#mp_check_up(id, key) abort
-  if (a:key == 'k' || a:key == "\<Up>")
-    call bates#plugin#mp_move_index(a:id, -1)
-    return 1
-  endif
-  return 0
-endfunc
-
-func! bates#plugin#s_check_down(id, key) abort
-  if (a:key == 'j' || a:key == "\<Down>")
-    call bates#plugin#s_move_index(a:id, 1)
-    return 1
-  endif
-  return 0
-endfunc
-
-func! bates#plugin#s_check_up(id, key) abort
-  if (a:key == 'k' || a:key == "\<Up>")
-    call bates#plugin#s_move_index(a:id, -1)
-    return 1
-  endif
-  return 0
-endfunc
-
-func! bates#plugin#s_check_del(id, key) abort
-  if (a:key == "\<BS>")
-
-    let l:pos = stridx(g:bates_search_filter, g:bates_search_cursor)
-
-    if (l:pos == 1)
-      let g:bates_search_filter = g:bates_search_cursor
-    elseif (l:pos > 1)
-      let g:bates_search_filter = g:bates_search_filter[:l:pos - 2] . g:bates_search_cursor . g:bates_search_filter[l:pos + 1:]
-    endif
-    call bates#text#search_page(a:id)
-    return 1
-  endif
-
-  return 0
-endfunc
-
-func! bates#plugin#s_filter(id, key) abort
-
-  if (a:key >= ' ' && a:key <= '~')
-    let l:pos = stridx(g:bates_search_filter, g:bates_search_cursor)
-    if (l:pos == 0)
-      let g:bates_search_filter = a:key . g:bates_search_cursor
-    else
-      let g:bates_search_filter = g:bates_search_filter[:l:pos - 1] . a:key . g:bates_search_filter[l:pos:]
-    endif
-    call bates#text#search_page(a:id)
-    return 1
-  endif
   return 0
 endfunc
 
@@ -381,4 +270,46 @@ func! bates#plugin#scroll_temp_list(id, i_pos, r_pos) abort
   endfor
 
 endfunc
+
+func! bates#plugin#get_key() abort
+
+  echo("Bates: press key to save file ") 
+  let l:key = 0 
+  let l:search = 1
+  while l:search
+    let l:key = nr2char(getchar())
+    let l:valid_char = ((type(l:key) == v:t_string) && (l:key != ' ') && (l:key != ''))
+    let l:search = !l:valid_char 
+  endwhile
+  redraw!
+  echo("Bates: saved key: " . l:key)
+  redraw!
+
+  return l:key
+endfunc
+
+func! bates#plugin#filter(id, key) abort
+
+  if (g:bates_curr_page == g:bates_main_page)
+    if (bates#main_page#filter(a:id, a:key))
+      return 1
+    endif
+  elseif (g:bates_curr_page == g:bates_search)
+    if (bates#search#filter(a:id, a:key))
+      return 1
+    endif
+  endif
+
+  return popup_filter_menu(a:id, a:key)
+endfunc
+
+func! bates#plugin#callback(id, key) abort
+
+  if (len(a:key))
+    call bates#plugin#open_file(a:key)
+    return
+  endif
+
+endfunc
+
 

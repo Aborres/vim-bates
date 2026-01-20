@@ -11,32 +11,34 @@ func! bates#text#main_page(id)
   let g:bates_header = 3
 
   call popup_settext(a:id, l:text)
-  call bates#plugin#mp_move_index(a:id, 0)
+  call bates#main_page#move_index(a:id, 0)
 
   let g:bates_text = l:text
 
   return l:text
 endfunc
 
-func! s:IsInList(list, file)
-  for l:e in a:list
-    if l:e[1] == a:file
-      return 1
-    endif
-  endfor
-  return 0
-endfunc
-
-func! s:AddList(list,  global_list, source, filter)
+func! s:AddList(list, global_list, source, filter)
   for l:file in a:source
-    if (!s:IsInList(a:list, l:file[1]))
+    if (!bates#plugin#is_in_list(a:list, l:file[1]))
       if (a:filter != '' && stridx(l:file[1], a:filter) == -1)
         continue
       endif
-      let l:text = bates#plugin#file_to_text(l:file, 0)
+      let l:text = bates#plugin#filename(l:file[1])
       call add(a:list, l:text)
       call add(a:global_list, l:file)
     endif
+  endfor
+endfunc
+
+func! s:CopyList(list, global_list, source, filter)
+  for l:file in a:source
+    if (a:filter != '' && stridx(l:file[1], a:filter) == -1)
+      continue
+    endif
+    let l:text = bates#plugin#filename(l:file[1])
+    call add(a:list, l:text)
+    call add(a:global_list, l:file)
   endfor
 endfunc
 
@@ -61,8 +63,9 @@ func! bates#text#search_page(id)
   let l:filter = s:RemoveCursor(g:bates_search_filter)
 
   let l:files = []
-  call s:AddList(l:files, g:bates_files_list, g:bates_saved_files,  l:filter)
-  call s:AddList(l:files, g:bates_files_list, g:bates_opened_files, l:filter)
+  "call s:AddList(l:files, g:bates_files_list, g:bates_saved_files,  l:filter)
+  "call s:AddList(l:files, g:bates_files_list, g:bates_opened_files, l:filter)
+  call s:CopyList(l:files, g:bates_files_list, g:bates_file_tracking, l:filter)
 
   let g:bates_header = 2
 
