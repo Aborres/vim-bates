@@ -215,12 +215,16 @@ endfunct
 func! s:IsFileAlreadyOpened(path) abort
 
   let l:buffer_number = bufnr(a:path)
-  if (l:buffer_number <= 0)
+  if (l:buffer_number < 0)
+    return -1
+  endif
+
+  let l:win_number = index(tabpagebuflist(), l:buffer_number)
+  if (l:win_number < 0)
     return -1
   endif
 
   return l:buffer_number
-
 endfunc
 
 func! s:FocusBuffer(buffer) abort
