@@ -1,14 +1,14 @@
 
 
-funct! s:BatesSearchMoveIndexTo(id, pos) abort
+func! s:BatesSearchMoveIndexTo(id, pos) abort
   let g:bates_idx = bates#plugin#clamp(a:pos, len(g:bates_files_list))
   let l:offset = g:bates_header + 1
   call bates#plugin#set_index_to(a:id, g:bates_idx + l:offset)
-endfunct
+endfunc
 
-funct! s:BatesSearchMoveIndex(id, dir) abort
+func! s:BatesSearchMoveIndex(id, dir) abort
   call s:BatesSearchMoveIndexTo(a:id, g:bates_idx + a:dir)
-endfunct
+endfunc
 
 func! s:BatesSearchCheckDown(id, key) abort
   if (a:key == 'j' || a:key == "\<Down>")
