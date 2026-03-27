@@ -1,6 +1,20 @@
 
 let g:bates_header = 3
 
+let s:bates_init = 0
+
+let g:bates_main_page = 0
+let g:bates_search    = 1
+let g:bates_curr_page = g:bates_main_page
+
+let g:bates_search_mode_input    = 0
+let g:bates_search_mode_navigate = 1
+let g:bates_search_mode = g:bates_search_mode_input
+
+let g:bates_search_filter = g:bates_search_cursor
+
+let g:bates_idx = 0
+
 func! bates#plugin#max_temp() abort
   return min([g:bates_max_temp_files, 9])
 endfunc
@@ -316,4 +330,108 @@ func! bates#plugin#callback(id, key) abort
 
 endfunc
 
+func! bates#plugin#init() abort
+  if (!s:bates_init)
+    let s:bates_init = 1
+  endif
+endfunc
 
+func! bates#plugin#reset() abort
+
+  call bates#plugin#init()
+
+  let g:bates_idx = 0
+  let g:bates_curr_page   = g:bates_main_page
+  let g:bates_search_mode = g:bates_search_mode_input
+  let g:bates_search_filter = g:bates_search_cursor
+endfunc
+
+func! bates#plugin#clear_all() abort
+  let l:bates_saved_files = []
+  let g:bates_opened_files = []
+  let g:bates_files_list = []
+  let g:bates_text = []
+
+  let g:bates_idx = 0
+  let g:bates_curr_page   = g:bates_main_page
+  let g:bates_search_mode = g:bates_search_mode_input
+
+  call bates#plugin#reset()
+endfunc
+
+func! bates#plugin#cache_file_at(key, file) abort
+
+  if (a:key =~ '[1-9]')
+    return
+  endif
+
+  call bates#plugin#cache_file(a:key, g:bates_saved_files, a:file, g:bates_allow_duplicates)
+endfunc
+
+func! bates#plugin#cache_focused_file_at(key) abort
+  let l:file = bates#plugin#get_focused_file()
+  call bates#plugin#cache_file_at(a:key, l:file)
+endfunc
+
+func! bates#plugin#request_key_for_focused_file() abort
+  let l:key = bates#plugin#get_key()
+  call bates#plugin#cache_focused_file_at(l:key)
+endfunc
+
+func! bates#plugin#request_key_for_file(file) abort
+  let l:key = bates#plugin#get_key()
+  call bates#plugin#cache_file_at(l:key, a:file)
+endfunc
+
+func! bates#plugin#cache_opened_file() abort
+
+  if (!bates#plugin#is_focused_valid())
+    return
+  endif
+
+  call bates#plugin#trackfile()
+
+  let l:count = len(g:bates_opened_files)
+  if (l:count != bates#plugin#max_temp())
+
+    let l:pos = l:count + 1 
+    call bates#plugin#cache_focused_file(l:pos, g:bates_opened_files, 0)
+
+  else
+
+    let l:id = 1
+    let l:i_pos = 0
+    let l:r_pos = -1
+
+    if (g:bates_temp_files_scroll) "Up
+      let l:id = bates#plugin#max_temp()
+      let l:i_pos = bates#plugin#max_temp()
+      let l:r_pos = 0
+    endif
+    
+    call bates#plugin#scroll_temp_list(l:id, l:i_pos, l:r_pos)
+
+  endif
+
+endfunc
+
+func! bates#plugin#bates() abort
+
+  call bates#plugin#reset()
+
+  let l:ve_args = #{
+          \ title:'Bates',
+          \ filter: 'bates#plugin#filter',
+          \ callback: 'bates#plugin#callback',
+          \ borderchars: ['─', '│', '─', '│', '╭', '╮', '╯', '╰'],
+          \ resize: 1,
+          \ highlight: 'Normal',
+          \ wrap: 0,
+          \ scrollbar: 1,
+          \ close: 'none'
+        \}
+
+  let l:popup = popup_menu("", l:ve_args)
+  call bates#text#main_page(l:popup)
+
+endfunc

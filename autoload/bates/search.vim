@@ -45,15 +45,18 @@ endfunc
 
 func! s:BatesSearchFilterInput(id, key) abort
 
-  if (a:key >= ' ' && a:key <= '~')
+  if ((a:key >= ' ') && (a:key <= '~'))
+
     let l:pos = stridx(g:bates_search_filter, g:bates_search_cursor)
     if (l:pos == 0)
       let g:bates_search_filter = a:key . g:bates_search_cursor
     else
       let g:bates_search_filter = g:bates_search_filter[:l:pos - 1] . a:key . g:bates_search_filter[l:pos:]
     endif
+
     call bates#text#search_page(a:id)
     return 1
+
   endif
   return 0
 endfunc
@@ -73,6 +76,7 @@ func! s:BatesFilterSearchInput(id, key) abort
   endif
 
   if (s:BatesSearchCheckDel(a:id, a:key))
+    return 1
   endif
 
   if (s:BatesSearchFilterInput(a:id, a:key))

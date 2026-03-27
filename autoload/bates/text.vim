@@ -18,24 +18,60 @@ func! bates#text#main_page(id)
   return l:text
 endfunc
 
+func! s:ProcessFilter(filter) abort
+  let l:filter = a:filter
+  if (g:bates_search_ignorecase)
+    let l:filter = '\c' . l:filter
+  endif
+  return l:filter
+endfunc
+
+func! s:MatchesFilter(file, filter) abort
+
+  if (a:filter != '')
+
+    let l:filters = [a:filter]
+    if (g:bates_fuzzy_search)
+      let l:filters = split(a:filter, ' ')
+    endif
+
+    for l:f in l:filters
+      let l:filter = s:ProcessFilter(l:f)
+      if (match(a:file, l:filter) == -1)
+        return 0
+      endif
+    endfor
+  endif
+
+  return 1
+endfunc
+
 func! s:AddList(list, global_list, source, filter)
+
   for l:file in a:source
+
     if (!bates#plugin#is_in_list(a:list, l:file[1]))
-      if (a:filter != '' && stridx(l:file[1], a:filter) == -1)
+
+      if (!s:MatchesFilter(l:file[1], a:filter))
         continue
       endif
+
       let l:text = bates#plugin#filename(l:file[1])
       call add(a:list, l:text)
       call add(a:global_list, l:file)
     endif
+
   endfor
 endfunc
 
 func! s:CopyList(list, global_list, source, filter)
+
   for l:file in a:source
-    if (a:filter != '' && stridx(l:file[1], a:filter) == -1)
+
+    if (!s:MatchesFilter(l:file[1], a:filter))
       continue
     endif
+
     let l:text = bates#plugin#filename(l:file[1])
     call add(a:list, l:text)
     call add(a:global_list, l:file)

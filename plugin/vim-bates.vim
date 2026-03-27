@@ -11,6 +11,8 @@ let g:bates_sort_by           = 0 "0:Sort by key, 1: Sort by file
 
 let g:bates_search_pool       = 0  "0:Use list of tracked files, 1:Use file list from main pannel
 let g:bates_num_file_tracking = 20 "Only effective is g:bates_search_pool == 0 
+let g:bates_search_ignorecase = 1 
+let g:bates_fuzzy_search      = 1 
 
 let g:bates_search_cursor = '|'
 
@@ -24,124 +26,40 @@ let g:bates_text = []
 
 let g:bates_file_tracking = []
 
-"Internal
-let s:bates_init = 0
-
-let g:bates_main_page = 0
-let g:bates_search    = 1
-let g:bates_curr_page = g:bates_main_page
-
-let g:bates_search_mode_input    = 0
-let g:bates_search_mode_navigate = 1
-let g:bates_search_mode = g:bates_search_mode_input
-
-let g:bates_search_filter = g:bates_search_cursor
-
-let g:bates_idx = 0
-
 func! BatesInit() abort
-  if (!s:bates_init)
-    let s:bates_init = 1
-  endif
+  call bates#plugin#init()
 endfunc
 
 func! BatesReset() abort
-  call BatesInit()
-
-  let g:bates_idx = 0
-  let g:bates_curr_page   = g:bates_main_page
-  let g:bates_search_mode = g:bates_search_mode_input
+  call bates#plugin#reset()
 endfunc
 
 func! BatesClearAll() abort
-  let l:bates_saved_files = []
-  let g:bates_opened_files = []
-  let g:bates_files_list = []
-  let g:bates_text = []
-  let g:bates_search_filter = g:bates_search_cursor
-
-  let g:bates_idx = 0
-  let g:bates_curr_page   = g:bates_main_page
-  let g:bates_search_mode = g:bates_search_mode_input
-
-  call BatesReset()
+  call bates#plugin#clear_all()
 endfunc
 
 func! BatesCacheFileAt(key, file) abort
-
-  if (a:key =~ '[1-9]')
-    return
-  endif
-
-  call bates#plugin#cache_file(a:key, g:bates_saved_files, a:file, g:bates_allow_duplicates)
+  call bates#plugin#cache_file_at(a:key, a:file)
 endfunc
 
 func! BatesCacheFocusedFileAt(key) abort
-  let l:file = bates#plugin#get_focused_file()
-  call BatesCacheFileAt(a:key, l:file)
+  call bates#plugin#cache_focused_file_at(a:key)
 endfunc
 
 func! BatesRequestKeyForFocusedFile() abort
-  let l:key = bates#plugin#get_key()
-  call BatesCacheFocusedFileAt(l:key)
+  call bates#plugin#request_key_for_focused_file()
 endfunc
 
 func! BatesRequestKeyForFile(file) abort
-  let l:key = bates#plugin#get_key()
-  call BatesCacheFileAt(l:key, a:file)
+  call bates#plugin#request_key_for_file(a:file)
 endfunc
 
 func! BatesCacheOpenedFile() abort
-
-  if (!bates#plugin#is_focused_valid())
-    return
-  endif
-
-  call bates#plugin#trackfile()
-
-  let l:count = len(g:bates_opened_files)
-  if (l:count != bates#plugin#max_temp())
-
-    let l:pos = l:count + 1 
-    call bates#plugin#cache_focused_file(l:pos, g:bates_opened_files, 0)
-
-  else
-
-    let l:id = 1
-    let l:i_pos = 0
-    let l:r_pos = -1
-
-    if (g:bates_temp_files_scroll) "Up
-      let l:id = bates#plugin#max_temp()
-      let l:i_pos = bates#plugin#max_temp()
-      let l:r_pos = 0
-    endif
-    
-    call bates#plugin#scroll_temp_list(l:id, l:i_pos, l:r_pos)
-
-  endif
-
+  call bates#plugin#cache_opened_file()
 endfunc
 
 func! Bates() abort
-
-  call BatesReset()
-
-  let l:ve_args = #{
-          \ title:'Bates',
-          \ filter: 'bates#plugin#filter',
-          \ callback: 'bates#plugin#callback',
-          \ borderchars: ['─', '│', '─', '│', '╭', '╮', '╯', '╰'],
-          \ resize: 1,
-          \ highlight: 'Normal',
-          \ wrap: 0,
-          \ scrollbar: 1,
-          \ close: 'none'
-        \}
-
-  let l:popup = popup_menu("", l:ve_args)
-  call bates#text#main_page(l:popup)
-
+  call bates#plugin#bates()
 endfunc
 
 autocmd BufReadPost,BufNewFile * call BatesCacheOpenedFile()
