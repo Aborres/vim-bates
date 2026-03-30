@@ -15,6 +15,26 @@ let g:bates_search_filter = g:bates_search_cursor
 
 let g:bates_idx = 0
 
+func! s:FileName(file) abort
+  return fnamemodify(a:file, ':t')
+endfunc
+
+func! s:GenerateElement(key, file) abort
+
+  let l:line = line('.')
+  let l:col  = col('.')
+
+  let l:e = {}
+  let l:e.key  = a:key
+  let l:e.name = s:FileName(a:file)
+  let l:e.file = a:file
+  let l:e.line = l:line
+  let l:e.col  = l:col
+
+  return l:e
+
+endfunc
+
 func! bates#plugin#max_temp() abort
   return min([g:bates_max_temp_files, 9])
 endfunc
@@ -30,7 +50,7 @@ endfunc
 func! s:FindKey(key, pool) abort
   let l:i = 0
   for l:f in a:pool
-    if (l:f[0] == a:key)
+    if (l:f.key == a:key)
       return l:i
     endif
     let l:i = l:i + 1
@@ -42,40 +62,59 @@ func! s:IsKeyFree(key, pool) abort
   return s:FindKey(a:key, a:pool) == -1
 endfunc
 
-func! bates#plugin#is_file_contained(file) abort
+func! bates#plugin#find_file(file) abort
   for l:f in g:bates_saved_files
-    if (l:f[1] == a:file)
-      return 1
+    if (l:f.file == a:file)
+      return l:f
     endif
   endfor
 
   for l:f in g:bates_opened_files
-    if (l:f[1] == a:file)
-      return 1
+    if (l:f.file == a:file)
+      return l:f
     endif
   endfor
-  return 0
+  return {}
+endfunc
+
+func! bates#plugin#find_file_name(file) abort
+  for l:f in g:bates_saved_files
+    if (l:f.name == a:file)
+      return l:f
+    endif
+  endfor
+
+  for l:f in g:bates_opened_files
+    if (l:f.name == a:file)
+      return l:f
+    endif
+  endfor
+  return {}
+endfunc
+
+func! bates#plugin#is_file_contained(file) abort
+  return !empty(bates#plugin#find_file(a:file))
 endfunc
 
 func! s:SortByKey(a, b) abort
 
-  if a:a[0] ==# a:b[0]
+  if a:a.key ==# a:b.key
     return 0
   endif
 
-  return a:a[0] ># a:b[0] ? 1 : -1
+  return a:a.key ># a:b.key ? 1 : -1
 endfunc
 
 func! s:SortByFile(a, b) abort
 
-  if a:a[1] ==# a:b[1]
+  if a:a.file ==# a:b.file
     return 0
   endif
 
-  let l:path_a = fnamemodify(a:a[1][0], ':t')
-  let l:path_b = fnamemodify(a:b[1][0], ':t')
+  let l:path_a = fnamemodify(a:a, ':t')
+  let l:path_b = fnamemodify(a:b, ':t')
 
-  return l:path_a[0] ># l:path_b[0] ? 1 : -1
+  return l:path_a.key ># l:path_b.key ? 1 : -1
 endfunc
 
 func! s:Sort(list, sort_by) abort
@@ -94,14 +133,6 @@ func! bates#plugin#is_focused_valid() abort
   return &buftype ==# ''
 endfunc
 
-func! s:GenerateElement(key, file) abort
-
-  let l:line = line('.')
-  let l:col  = col('.')
-
-  return [a:key, a:file, l:line, l:col]
-endfunc
-
 func! s:GenerateFocusedElement(key) abort
   let l:file = bates#plugin#get_focused_file()
   return s:GenerateElement(a:key, l:file) 
@@ -109,7 +140,7 @@ endfunc
 
 func! bates#plugin#is_in_list(list, file)
   for l:e in a:list
-    if l:e[1] == a:file
+    if l:e.file == a:file
       return 1
     endif
   endfor
@@ -138,7 +169,7 @@ func! bates#plugin#cache_file(key, pool, file, allow_duplicates) abort
   endif
 
   let l:element = s:GenerateElement(a:key, a:file)
-  let l:file = l:element[1]
+  let l:file = l:element.file
 
   if (!a:allow_duplicates)
     if (bates#plugin#is_file_contained(l:file))
@@ -168,16 +199,16 @@ endfunc
 
 func! bates#plugin#file_to_text(f, line) abort
 
-  let l:file = a:f[1]
+  let l:file = a:f.file
 
   if (!g:bates_show_abs_paths)
     let l:file = bates#plugin#filename(l:file)
   endif
 
   if (a:line)
-    return printf('%s: %s:%d', a:f[0], l:file, a:f[2])
+    return printf('%s: %s:%d', a:f.key, l:file, a:f.line)
   else
-    return printf('%s: %s', a:f[0], l:file)
+    return printf('%s: %s', a:f.key, l:file)
   endif
 endfunc
 
@@ -256,7 +287,7 @@ endfunc
 
 func! bates#plugin#open_file(file) abort
 
-  let l:file = fnameescape(a:file[1])
+  let l:file = fnameescape(a:file.file)
   let l:buffer = s:IsFileAlreadyOpened(l:file)
   if (g:bates_switch_focus && (l:buffer > -1))
     if (bufnr('%') != winbufnr(l:buffer))
@@ -268,8 +299,8 @@ func! bates#plugin#open_file(file) abort
     execute 'edit ' . l:file
   endif
 
-  let l:line   = g:bates_load_to_line   ? a:file[2] : 0
-  let l:column = g:bates_load_to_column ? a:file[3] : 0
+  let l:line   = g:bates_load_to_line   ? a:file.line : 0
+  let l:column = g:bates_load_to_column ? a:file.col : 0
 
   call cursor(l:line, l:column)
 
@@ -284,7 +315,7 @@ func! bates#plugin#scroll_temp_list(id, i_pos, r_pos) abort
 
   let l:count = len(g:bates_opened_files)
   for l:i in range(0, l:count - 1)
-    let g:bates_opened_files[l:i][0] = l:i + 1
+    let g:bates_opened_files[l:i].key = l:i + 1
   endfor
 
 endfunc

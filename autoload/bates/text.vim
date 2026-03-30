@@ -50,13 +50,13 @@ func! s:AddList(list, global_list, source, filter)
 
   for l:file in a:source
 
-    if (!bates#plugin#is_in_list(a:list, l:file[1]))
+    if (!bates#plugin#is_in_list(a:list, l:file.file))
 
-      if (!s:MatchesFilter(l:file[1], a:filter))
+      if (!s:MatchesFilter(l:file.file, a:filter))
         continue
       endif
 
-      let l:text = bates#plugin#filename(l:file[1])
+      let l:text = bates#plugin#filename(l:file.file)
       call add(a:list, l:text)
       call add(a:global_list, l:file)
     endif
@@ -68,11 +68,11 @@ func! s:CopyList(list, global_list, source, filter)
 
   for l:file in a:source
 
-    if (!s:MatchesFilter(l:file[1], a:filter))
+    if (!s:MatchesFilter(l:file.file, a:filter))
       continue
     endif
 
-    let l:text = bates#plugin#filename(l:file[1])
+    let l:text = bates#plugin#filename(l:file.file)
     call add(a:list, l:text)
     call add(a:global_list, l:file)
   endfor

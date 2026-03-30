@@ -35,7 +35,7 @@ endfunc
 func! s:BatesMainPageCheckEsc(id, key) abort
 
   if (a:key == "\<Esc>")
-    call popup_close(a:id, [])
+    call popup_close(a:id, {})
     return 1
   endif
   return 0
@@ -46,7 +46,7 @@ func! s:BatesMainPageCheckShorcut(id, key, pool) abort
   for l:i in range(0, len(a:pool) - 1)
 
     let l:f = a:pool[l:i]
-    if (l:f[0] == a:key)
+    if (l:f.key == a:key)
       call popup_close(a:id, l:f)
       return 1
     endif
